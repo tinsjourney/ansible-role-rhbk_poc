@@ -16,6 +16,10 @@ It use the following ansible inventory.
 |`sso_servers`| hosts to install RHBK |
 |`sso_db`| host to install postgreSQL |
 
+The role requires additional collections which are specified in `meta/collection-requirements.yml`. These are not automatically installed. You must install them like this:
+
+`ansible-galaxy install -r meta/collection-requirements.yml`
+
 Role Variables
 --------------
 
