@@ -1,0 +1,22 @@
+---
+- name: Create rhbk service user/group
+  ansible.builtin.user:
+    name: "rhbk"
+    home: /opt/rhbk
+    system: true
+    create_home: false
+
+- name: Set ownership to certificate file
+  ansible.builtin.file:
+    path: "{{ item }}"
+    owner: rhbk
+    group: rhbk
+  loop:
+    - /etc/pki/tls/private/{{ ansible_hostname }}.key
+    - /etc/pki/tls/certs/{{ ansible_hostname }}.crt
+
+- name: Set rw on /etc/ansible (see https://github.com/ansible/ansible/issues/71504)
+  ansible.builtin.file:
+    path: /etc/ansible
+    state: directory
+    mode: 'o+rx'

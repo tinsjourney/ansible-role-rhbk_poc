@@ -1,0 +1,45 @@
+- name: federation-sssd-setup.sh
+  community.general.ini_file:
+    path: /etc/sssd/sssd.conf
+    section: "{{ item.section }}"
+    option: "{{ item.option }}"
+    value: "{{ item.value }}"
+    exclusive: "{{ item.exclusive | default(omit) }}"
+  loop:
+    - { section: "domain/{{ ansible_domain }}", option: "ldap_user_extra_attrs", value : "mail:mail, sn:sn, givenname:givenname, telephoneNumber:telephoneNumber"}
+    - { section: "ifp", option: "allowed_uids", value: "root, rhbk" }
+    - { section: "ifp", option: "user_attributes", value: "+mail, +telephoneNumber, +givenname, +sn"}
+  notify: Restart service sssd
+
+- name: Add ifp to sssd services
+  ansible.builtin.lineinfile:
+    path: /etc/sssd/sssd.conf
+    regex: '^(services = .*?)(, ifp)?$'
+    line: '\1, ifp'
+    backrefs: true
+  notify: Restart service sssd
+
+- name: Copy keycloak pam file
+  ansible.builtin.copy:
+    src: keycloak.pam
+    dest: /etc/pam.d/keycloak
+    mode: '0644'
+  notify: Restart service sssd
+
+- name: Create user ipaapi
+  ansible.builtin.user:
+    name: ipaapi
+    state: present
+    shell: /sbin/nologin
+    comment: IPA Framework User
+    create_home: false
+    system: true
+
+- ansible.builtin.import_role:
+    name: redhat.rhbk.rhbk_realm
+  delegate_to: "{{ ansible_play_hosts | first }}"
+  run_once: true
+  vars:
+    rhbk_admin_password: "{{ sso_admin_password }}"
+    rhbk_realm: "{{ sso_realm }}"
+    rhbk_no_log: false

@@ -1,0 +1,26 @@
+- name: Configure rsyslog to catch haproxy log
+  ansible.builtin.copy:
+    src: rsyslog-haproxy.conf
+    dest: /etc/rsyslog.d/99-haproxy.conf
+    owner: root
+    group: root
+    mode: '644'
+  notify: Restart service rsyslog
+
+- name: Configure selinux for rsyslog-haproxy
+  ansible.builtin.import_role:
+    name: redhat.rhel_system_roles.selinux
+  vars:
+    selinux_modules:
+      - path: rsyslog-haproxy.pp
+        state: enabled
+
+- name: Create log directory
+  ansible.builtin.file:
+    path: "/var/lib/haproxy/dev"
+    state: directory
+    owner: root
+    group: root
+    mode: '644'
+    setype: 'haproxy_var_lib_t'
+  notify: Restart service rsyslog

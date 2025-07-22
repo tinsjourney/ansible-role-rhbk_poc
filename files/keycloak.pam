@@ -1,0 +1,4 @@
+#%PAM-1.0
+# PAM configuration file for keycloak user federation with sssd
+auth    required   pam_sss.so
+account required   pam_sss.so

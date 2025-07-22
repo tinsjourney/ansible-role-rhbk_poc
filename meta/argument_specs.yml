@@ -1,0 +1,48 @@
+argument_specs:
+  main:
+    short_description: "Install a SSO/RHBK cluster"
+    description:
+      - Install a 2 nodes SSO/RHBK cluster backed by a postgresql database, behind a HAproxy load-balancer
+    author: Stephane Vigan
+
+    options:
+      sso_rhbk_version:
+        description:
+          - Version of RHBK to Install
+        default: 26.2.5
+        type: str
+      sso_download_url:
+        description:
+          - URL to download rhbk zip.
+        default: "https://satellite.{{ ansible_domain }}/pub/rhbk-{{ rhbk_version }}.zip"
+        type: str
+      sso_admin_password:
+        description:
+          - Default password for admin account, must be 12 caracters minimum.
+        type: str
+        required: true
+      sso_db_user:
+        description:
+          - User allowed to connect to  keycloak database
+        type: str
+        required: true
+      sso_db_pass:
+        description:
+          - Password for keycloak database
+        type: str
+        required: true
+      sso_db_host:
+        description:
+          - ip or fqdn of database server
+        type: str
+        required: true
+      sso_db_name:
+        description:
+          - Database name
+        type: str
+        required: true
+      sso_realm:
+        description:
+          - Realm to create for client auth
+        type: str
+        required: true

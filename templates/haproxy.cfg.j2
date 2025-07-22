@@ -1,0 +1,91 @@
+global
+    log         /dev/log local0 info
+
+    # generated 2025-07-12, Mozilla Guideline v5.7, HAProxy 2.4.22, OpenSSL 3.2.2, modern config
+    # https://ssl-config.mozilla.org/#server=haproxy&version=2.4.22&config=modern&openssl=3.2.2&guideline=5.7
+    ssl-default-bind-curves X25519:prime256v1:secp384r1
+    ssl-default-bind-ciphersuites TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256
+    ssl-default-bind-options prefer-client-ciphers ssl-min-ver TLSv1.3 no-tls-tickets
+
+    ssl-default-server-ciphersuites TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256
+    ssl-default-server-options ssl-min-ver TLSv1.3 no-tls-tickets
+
+    chroot      /var/lib/haproxy
+    pidfile     /var/run/haproxy.pid
+    maxconn     4000
+    user        haproxy
+    group       haproxy
+    daemon
+    ca-base     /etc/ssl/certs
+    crt-base  /etc/ssl/private
+    # turn on stats unix socket
+    stats socket /var/lib/haproxy/stats
+    tune.maxrewrite  16384
+    tune.bufsize     32768
+
+defaults
+    mode                    http # http mode is used throughout with re-encrypt
+    log                     global
+    option                  httplog
+    option                  dontlognull
+    option                  redispatch
+    retries                 3
+    timeout http-request    20s
+    timeout queue           1m
+    timeout connect         10s
+    timeout client          1m
+    timeout server          1m
+    timeout http-keep-alive 10s
+    timeout check           10s
+    maxconn                 3000
+    hash-type consistent
+    balance source
+
+listen haproxy-stats # Only if you wish to access stats
+    bind :8080
+    mode http
+    option forwardfor
+    option httpclose
+    stats enable
+    stats show-legends
+    stats refresh 10s
+    stats uri /stats
+    stats realm Haproxy\ Statistics
+    stats auth admin:MYSPECIALPASSWORD
+    stats admin if TRUE
+
+frontend keycloakfrontend
+    mode http
+    bind :443 name {{ ansible_fqdn }}:443 ssl crt /etc/haproxy/ssl/{{ ansible_hostname }}.pem alpn h2,http/1.1
+    bind :80
+    redirect scheme https code 301 if !{ ssl_fc }
+    option forwardfor
+    # Redirect root "/" to realm account page
+    acl is_root path -i /
+    http-request redirect location /realms/{{ sso_realm }}/account code 301 if is_root
+    http-request set-header X-Forwarded-Proto https
+    default_backend no_match
+    use_backend keycloak_backend_tls if { path /realms/{{ sso_realm }} } || { path_beg /realms/{{ sso_realm }} } || { path_beg /resources/ } # This protects the backends Administrative uris (/admin/master or /realm/master)
+
+backend keycloak_backend_tls
+    mode http
+    balance roundrobin
+    cookie SRV insert indirect nocache
+    option httpchk GET /health # This uri will show “status”: “UP” as part of its output
+    http-check expect string UP
+    option redispatch
+    option log-health-checks
+
+    option forwardfor
+    http-request set-header X-Forwarded-Proto https
+    http-request set-header X-Forwarded-For %[src]
+    http-request set-header X-Forwarded-Host %[req.hdr(host)]
+    http-response set-header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+
+    default-server ssl check verify none on-marked-down shutdown-sessions on-marked-up shutdown-backup-sessions # This is important, to shutdown all sessions when transitioning from one backend to the other
+    server kc1 {{ groups["sso_servers"][0] }}:8443 sni str('{{ groups["sso_servers"][0] }}') check-sni '{{ groups["sso_servers"][0] }}' verifyhost '{{ groups["sso_servers"][0] }}' ca-file /etc/ipa/ca.crt check port 9000 check-ssl cookie k1
+    server kc2 {{ groups["sso_servers"][1] }}:8443 sni str('{{ groups["sso_servers"][1] }}') check-sni '{{ groups["sso_servers"][1] }}' verifyhost '{{ groups["sso_servers"][1] }}' ca-file /etc/ipa/ca.crt check port 9000 check-ssl cookie k2
+
+backend no_match
+    mode http
+    http-request deny deny_status 400

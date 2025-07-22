@@ -1,0 +1,11 @@
+SELECT 'CREATE DATABASE keycloak' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'keycloak')\gexec
+\set role_exists false
+SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname = 'keycloak') AS role_exists \gset
+\if :role_exists
+ \echo 'Role "keycloak" already exists.'
+\else
+  CREATE USER keycloak WITH PASSWORD '{{ sso_db_pass }}';
+\endif
+GRANT ALL PRIVILEGES ON DATABASE keycloak TO keycloak;
+\c keycloak
+GRANT ALL ON SCHEMA public to keycloak;

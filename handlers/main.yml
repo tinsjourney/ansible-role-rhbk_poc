@@ -1,0 +1,16 @@
+---
+# handlers file for sso
+- name: Restart service sssd
+  ansible.builtin.service:
+    name: sssd
+    state: restarted
+
+- name: Restart service haproxy
+  ansible.builtin.service:
+    name: haproxy
+    state: restarted
+
+- name: Restart service rsyslog
+  ansible.builtin.service:
+    name: rsyslog
+    state: restarted

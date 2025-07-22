@@ -1,0 +1,19 @@
+---
+- name: Check if certificate exist
+  ansible.builtin.stat:
+    checksum_algorithm: sha256
+    path: "/etc/pki/tls/certs/{{ ansible_hostname }}.crt"
+  register: "keycloak_cert"
+
+
+- name: Get certificate information
+  community.crypto.x509_certificate_info:
+    path: "/etc/pki/tls/certs/{{ ansible_hostname }}.crt"
+  when: keycloak_cert.stat.exists and keycloak_cert.stat.isreg
+  register: keycloak_cert_info
+
+- name: Generate certificate
+  ansible.builtin.include_role:
+    name: redhat.rhel_system_roles.certificate
+  when: not keycloak_cert.stat.exists or keycloak_cert_info.expired
+

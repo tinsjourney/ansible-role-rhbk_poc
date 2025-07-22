@@ -1,0 +1,25 @@
+---
+# tasks file for sso
+
+- name: Manage certificate for RHBK
+  ansible.builtin.import_tasks: certificates.yaml
+  vars:
+    certificate_requests: "{{ rhbk_certificate_requests }}"
+
+- name: Fix sso role specific behavior
+  ansible.builtin.import_tasks: prereqs.yaml
+
+- name: Install RHBK
+  ansible.builtin.import_role:
+    name: redhat.rhbk.rhbk
+  vars:
+    rhbk_version: "{{ sso_rhbk_version }}"
+    rhbk_alternate_download_url: "{{ sso_download_url }}"
+    rhbk_db_user: "{{ sso_db_user }}"
+    rhbk_db_pass: "{{ sso_db_pass }}"
+    rhbk_db_url: "jdbc:postgresql://{{ sso_db_host }}:5432/{{ sso_db_name }}?sslmode=verify-full&sslrootcert=/etc/ipa/ca.crt"
+    rhbk_bootstrap_admin_password: "{{ sso_admin_password }}"
+    rhbk_config_key_store_password: "{{ sso_config_key_store_password }}"
+
+- name: Define basic RHBK realm configuration
+  ansible.builtin.import_tasks: configure_rhbk.yaml

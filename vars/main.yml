@@ -1,0 +1,135 @@
+---
+# ################## #
+# Firewall variables #
+# ################## #
+haproxy_firewall:
+  - service: https
+    state: enabled
+db_firewall:
+  - service: postgresql
+    state: enabled
+
+# ########################## #
+# SSL certificates variables #
+# ########################## #
+rhbk_certificate_requests:
+  - name: "{{ ansible_hostname }}"
+    dns: "{{ ansible_fqdn }}"
+    ca: ipa
+    run_before: "systemctl stop rhbk"
+    run_after: "systemctl start rhbk"
+    principal: "host/{{ ansible_fqdn }}@{{ ansible_domain | upper }}"
+
+haproxy_certificate_requests:
+  - name: "{{ ansible_hostname }}"
+    dns: "{{ ansible_fqdn }}"
+    ca: ipa
+    run_before: "systemctl stop haproxy"
+    run_after: |
+      # Copy crt and key to haproxy directory
+      ca_path="/etc/ipa/ca.crt"
+      service_crt="/etc/pki/tls/certs/{{ ansible_hostname }}.crt"
+      service_key="/etc/pki/tls/private/{{ ansible_hostname }}.key"
+      service_pem="/etc/haproxy/ssl/{{ ansible_hostname }}.pem"
+
+      cat "$service_crt" "$ca_path" "$service_key" > "$service_pem"
+
+      # Trigger a reload for HAProxy to read the new certificates
+      systemctl reload haproxy
+    principal: "host/{{ ansible_fqdn }}@{{ ansible_domain | upper }}"
+
+db_certificate_requests:
+  - name: "{{ ansible_hostname }}"
+    dns: "{{ ansible_fqdn }}"
+    ca: ipa
+    run_before: "systemctl stop postgresql"
+    run_after: "systemctl start postgresql"
+    principal: "host/{{ ansible_fqdn }}@{{ ansible_domain | upper }}"
+
+# #################### #
+# PostgreSQL variables #
+# #################### #
+postgresql_version: "16"
+postgresql_ssl_enable: true
+postgresql_server_conf:
+  listen_addresses : "'*'"
+postgresql_pg_hba_conf:
+  - type: local
+    database: all
+    user: all
+    auth_method: peer
+  - type: host
+    database: all
+    user: all
+    address: '127.0.0.1/32'
+    auth_method: ident
+  - type: host
+    database: all
+    user: all
+    address: '::1/128'
+    auth_method: ident
+  - type: hostssl
+    database: keycloak
+    user: keycloak
+    auth_method: md5
+    address: "{{ hostvars[groups['sso_servers'][0]]['ansible_host'] }}/32"
+  - type: hostssl
+    database: keycloak
+    user: keycloak
+    auth_method: md5
+    address: "{{ hostvars[groups['sso_servers'][1]]['ansible_host'] }}/32"
+  # Debug access from a host register to freeipa, in case we want to test user/password access
+  - type: hostnogssenc
+    database: keycloak
+    user: keycloak
+    auth_method: md5
+    address: "192.168.100.169/32"
+pogresql_input_file: "{{ temp_keycloak_sql.path }}"
+
+# ############## #
+# RHBK variables #
+# ############## #
+# rhbk_http_enabled: true
+# rhbk_hostname: "https://sso.{{ ansible_domain }}"
+# rhbk_hostname_admin: "https://{{ ansible_fqdn }}:8443"
+rhbk_health_check_url: "https://{{ ansible_fqdn }}:9000/health"
+rhbk_hostname_strict: false
+rhbk_ha_enabled: true
+rhbk_https_key_file_enabled: true
+rhbk_key_file: "/etc/pki/tls/private/{{ ansible_hostname }}.key"
+rhbk_cert_file: "/etc/pki/tls/certs/{{ ansible_hostname }}.crt"
+rhbk_configure_firewalld: true
+rhbk_admin_password: "{{ rhbk_bootstrap_admin_password }}"
+rhbk_context: ''
+# rhbk_download_path: "/tmp"
+rhbk_proxy_headers: forwarded
+
+# #################### #
+# RHBK REALM variables #
+# #################### #
+rhbk_user_federation:
+  - name: idm
+    realm: "{{ sso_realm }}"
+    provider_id: sssd
+    config:
+      priority: 1
+      enabled: true
+      cachePolicy: DEFAULT
+  - name: kerberos
+    realm: "{{ sso_realm }}"
+    provider_id: kerberos
+    config:
+      priority: 0
+      enabled: true
+      kerberosRealm: "{{ ansible_domain | upper }}"
+      serverPrincipal: "HTTP/sso.{{ ansible_domain }}@{{ ansible_domain | upper }}"
+      keyTab: "{{ sso_spnego_keytab }}"
+      allowPasswordAuthentication: true
+      updateProfileFirstLogin: false
+      editMode: READ_ONLY
+      cachePolicy: DEFAULT
+
+# ###################### #
+# SPNEGO login variables #
+# ###################### #
+sso_spnego_keytab: "/opt/rhbk/rhbk-{{ sso_rhbk_version }}/conf/http.keytab"

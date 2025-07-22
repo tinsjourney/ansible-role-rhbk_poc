@@ -1,0 +1,12 @@
+---
+# ############## #
+# RHBK variables #
+# ############## #
+sso_rhbk_version: "26.2.5"
+sso_download_url: "https://satellite.{{ ansible_domain }}/pub/rhbk-{{ rhbk_version }}.zip"
+sso_db_user: "keycloak"
+sso_db_pass: "keycloak"
+sso_db_name: "keycloak"
+sso_federation:
+  - kerberos
+  - sssd

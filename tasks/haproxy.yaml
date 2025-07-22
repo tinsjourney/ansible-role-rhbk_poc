@@ -1,0 +1,45 @@
+- name: Create dirs for certificates and keys
+  ansible.builtin.file:
+    path: /etc/haproxy/ssl
+    state: directory
+    owner: root
+    group: root
+    mode: '644'
+    serole: object_r
+    setype: cert_t
+    seuser: system_u
+
+- name: Manage certificate for haproxy
+  ansible.builtin.import_tasks: certificates.yaml
+  vars:
+    certificate_requests: "{{ haproxy_certificate_requests }}"
+
+- name: Configure firewall for haproxy
+  ansible.builtin.import_role:
+    name: redhat.rhel_system_roles.firewall
+  vars:
+    firewall: "{{ haproxy_firewall }}"
+
+- name: Install package haproxy
+  ansible.builtin.dnf:
+    name: haproxy
+    state: latest
+
+- name: Configure haproxy for RHBK
+  ansible.builtin.template:
+    src: haproxy.cfg.j2
+    dest: /etc/haproxy/haproxy.cfg
+    owner: root
+    group: root
+    mode: '644'
+  notify: Restart service haproxy
+
+- name: Start and enabled haproxy
+  ansible.builtin.service:
+    name: haproxy
+    state: started
+    enabled: true
+
+# https://www.digitalocean.com/community/tutorials/how-to-configure-haproxy-logging-with-rsyslog-on-centos-8-quickstart
+- name: Send haproxy log to rsyslog
+  ansible.builtin.import_tasks: haproxy_rsyslog.yaml
