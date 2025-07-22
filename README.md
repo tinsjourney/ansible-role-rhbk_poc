@@ -12,9 +12,9 @@ It use the following ansible inventory.
 
 | Group name | Description |
 |:-----------|:------------|
-|`sso-haproxy`| host to install HAproxy load-balancer |
-|`sso-servers`| hosts to install RHBK |
-|`sso-db`| host to install postgreSQL |
+|`sso_haproxy`| host to install HAproxy load-balancer |
+|`sso_servers`| hosts to install RHBK |
+|`sso_db`| host to install postgreSQL |
 
 Role Variables
 --------------
@@ -67,7 +67,7 @@ Example Playbook
   tasks:
     - name: Configure postgreSQL from sso role
       ansible.builtin.include_role:
-        name: sso
+        name: rhbk_poc
         tasks_from: postgresql.yaml
       when: sso_db_install | bool
 
@@ -83,7 +83,7 @@ Example Playbook
       tags: always
 
   roles:
-    - sso
+    - rhbk_poc
 
   vars:
     sso_db_user: "keycloak"
@@ -108,7 +108,7 @@ Example Playbook
   tasks:
     - name: Configure HAproxy from sso roles
       ansible.builtin.include_role:
-        name: sso
+        name: rhbk_poc
         tasks_from: haproxy.yaml
 
   vars:
